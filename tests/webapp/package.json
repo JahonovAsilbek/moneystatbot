@@ -1,0 +1,7 @@
+{
+  "name": "moneystatbot-webapp-tests",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node miniapp.test.mjs" },
+  "devDependencies": { "jsdom": "^24.0.0" }
+}

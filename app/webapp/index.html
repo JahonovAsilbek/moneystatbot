@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Xarajatlar</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --sec-bg: var(--tg-theme-secondary-bg-color, #f0f2f5);
+    --text: var(--tg-theme-text-color, #1a1a1a);
+    --hint: var(--tg-theme-hint-color, #8a8f98);
+    --accent: var(--tg-theme-button-color, #2ea6ff);
+    --accent-text: var(--tg-theme-button-text-color, #ffffff);
+    --link: var(--tg-theme-link-color, #2ea6ff);
+    --hairline: rgba(128,128,128,.16);
+    --warn: #d9822b;
+    /* Diagramma chizig'i uchun yagona rang (kattalikni ko'rsatadi, shaxsni
+       emas — shaxs emoji va nom orqali beriladi). Yorug'/qorong'i sirtga
+       nisbatan kontrasti tekshirilgan. */
+    --series: #2a78d6;
+    /* Diagramma bo'laklari uchun 8 ta slot. Tartib tasodifiy emas: aynan shu
+       ketma-ketlik qo'shni juftliklar bo'yicha rang ko'rmaslikka (CVD)
+       tekshirilgan. Slotlarni joyini almashtirmang — tartib xavfsizlik
+       mexanizmi. 8 tadan ortiq kategoriya bo'lsa qolganlari "Boshqalar"
+       bo'lagiga yig'iladi (yangi rang o'ylab topilmaydi). */
+    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
+    --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7; --s8:#e34948;
+  }
+  body[data-scheme="dark"]{ --series:#3987e5; --hairline:rgba(160,160,160,.18); --warn:#e0a458;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+    --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767; }
+  @media (prefers-color-scheme: dark){
+    body:not([data-scheme="light"]){ --series:#3987e5; --hairline:rgba(160,160,160,.18); --warn:#e0a458;
+      --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+      --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767; }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{max-width:100%;overflow-x:hidden;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--sec-bg);color:var(--text);padding-bottom:env(safe-area-inset-bottom);}
+  .tabs{position:sticky;top:0;z-index:10;display:flex;background:var(--bg);
+    border-bottom:1px solid rgba(128,128,128,.15);}
+  /* `min-width:0` shart: usiz flex elementi o'z matnidan tor bo'la olmaydi va
+     "Statistika"/"Ro'yxat" tab panelini ekrandan kengaytirib yuboradi —
+     natijada butun sahifa gorizontal siljib, summalar ko'rinmay qoladi. */
+  .tab{flex:1 1 0;min-width:0;text-align:center;padding:12px 3px;font-size:13px;
+    font-weight:600;color:var(--hint);border-bottom:2px solid transparent;
+    cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .tab .badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;
+    font-size:11px;line-height:18px;border-radius:9px;background:#ff3b30;color:#fff;vertical-align:top;}
+  .view{padding:12px;display:none;}
+  .view.active{display:block;}
+  .card{background:var(--bg);border-radius:14px;padding:14px;margin-bottom:12px;
+    box-shadow:0 1px 3px rgba(0,0,0,.06);}
+  .amount{font-size:22px;font-weight:700;}
+  .meta{color:var(--hint);font-size:13px;margin-top:3px;}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;}
+  .chip{padding:8px 11px;border-radius:11px;background:var(--sec-bg);font-size:13px;
+    border:none;color:var(--text);cursor:pointer;transition:transform .05s;}
+  .chip:active{transform:scale(.94);}
+  .chip.sel{background:var(--accent);color:var(--accent-text);}
+  .empty{text-align:center;padding:60px 20px;color:var(--hint);}
+  .empty .big{font-size:52px;margin-bottom:10px;}
+  /* ---- Filtr paneli ---- */
+  .filters{margin-bottom:10px;}
+  .periods{display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;
+    scrollbar-width:none;-ms-overflow-style:none;}
+  .periods::-webkit-scrollbar{display:none;}
+  .period{padding:7px 13px;border-radius:20px;background:var(--bg);font-size:13px;
+    white-space:nowrap;border:none;color:var(--text);cursor:pointer;flex:0 0 auto;}
+  .period.active{background:var(--accent);color:var(--accent-text);}
+  .datebox{display:none;background:var(--bg);border-radius:13px;padding:12px;margin-top:9px;}
+  .datebox.open{display:block;}
+  .drow{display:flex;gap:9px;}
+  .drow label{flex:1 1 0;min-width:0;font-size:12px;color:var(--hint);display:block;}
+  .dinp{width:100%;max-width:100%;box-sizing:border-box;margin-top:5px;padding:9px;border-radius:9px;font-size:14px;
+    border:1px solid var(--hairline);background:var(--sec-bg);color:var(--text);}
+  .derr{font-size:12px;color:#ff3b30;margin-top:8px;display:none;}
+  .derr.show{display:block;}
+
+  /* ---- Halqa diagramma (inline SVG, kutubxonasiz) ---- */
+  /* viewBox 240 ga kengaydi (halqa atrofidagi emoji yorliqlari uchun),
+     shuning uchun konteyner ham kengayadi — halqa o'lchami o'zgarmasin. */
+  .donutwrap{position:relative;width:236px;max-width:80vw;margin:2px auto 14px;}
+  .donutwrap svg{display:block;width:100%;height:auto;}
+  .donutwrap .slice{cursor:pointer;transition:opacity .15s;}
+  .donutwrap .slice:active{opacity:.65;}
+  .dcenter{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;pointer-events:none;text-align:center;}
+  .dcenter .dlab{font-size:11px;color:var(--hint);}
+  .dcenter .dval{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;
+    letter-spacing:-.02em;line-height:1.15;}
+  .swatch{flex:0 0 5px;width:5px;align-self:stretch;border-radius:3px;background:var(--sw);}
+  .donutwrap .dlabel{cursor:pointer;user-select:none;}
+  .dcenter .dlab{max-width:104px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+  /* ---- Statistika ---- */
+  .total{text-align:center;font-size:13px;color:var(--hint);margin:4px 0 16px;}
+  .total b{color:var(--text);font-size:30px;display:block;margin-top:3px;
+    font-variant-numeric:tabular-nums;letter-spacing:-.02em;}
+  .sheet{background:var(--bg);border-radius:14px;overflow:hidden;
+    box-shadow:0 1px 3px rgba(0,0,0,.07);}
+  .srow{display:flex;align-items:center;gap:11px;width:100%;padding:12px 13px;
+    background:none;border:none;border-top:1px solid var(--hairline);
+    color:var(--text);text-align:left;font:inherit;cursor:pointer;}
+  .srow:first-child{border-top:none;}
+  .srow:active{background:var(--sec-bg);}
+  .srow .ico{flex:0 0 34px;height:34px;border-radius:10px;background:var(--sec-bg);
+    display:flex;align-items:center;justify-content:center;font-size:17px;}
+  .srow .nm{flex:1;min-width:0;}
+  .srow .nmt{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .bartrack{height:5px;border-radius:3px;background:var(--sec-bg);margin-top:7px;overflow:hidden;}
+  .bar{height:100%;border-radius:3px;background:var(--series);min-width:3px;}
+  .srow .amt{text-align:right;flex-shrink:0;font-size:14px;font-weight:700;
+    font-variant-numeric:tabular-nums;}
+  .srow .pc{font-size:11px;color:var(--hint);font-weight:400;}
+  .srow .chev{color:var(--hint);font-size:17px;flex-shrink:0;}
+
+  /* ---- Drill-down sarlavhasi ---- */
+  .dhead{display:flex;align-items:center;gap:11px;margin-bottom:14px;}
+  .backbtn{flex:0 0 36px;height:36px;border-radius:11px;border:none;cursor:pointer;
+    background:var(--bg);color:var(--text);font-size:18px;line-height:1;}
+  .dtitle{font-size:16px;font-weight:700;}
+
+  /* ---- Kunlar bo'yicha guruhlangan ro'yxat ---- */
+  .dayhead{display:flex;justify-content:space-between;align-items:baseline;
+    padding:0 4px 7px;margin-top:16px;font-size:12px;font-weight:600;
+    color:var(--hint);letter-spacing:.02em;}
+  .dayhead:first-child{margin-top:0;}
+  .dayhead .dsum{color:var(--text);font-variant-numeric:tabular-nums;}
+  .daygroup{background:var(--bg);border-radius:14px;overflow:hidden;
+    box-shadow:0 1px 3px rgba(0,0,0,.07);}
+  .lrow{border-top:1px solid var(--hairline);}
+  .lrow:first-child{border-top:none;}
+  .lmain{display:flex;align-items:center;gap:11px;padding:11px 13px;cursor:pointer;}
+  .lmain:active{background:var(--sec-bg);}
+  .lav{flex:0 0 38px;height:38px;border-radius:11px;background:var(--sec-bg);
+    display:flex;align-items:center;justify-content:center;font-size:18px;}
+  .lrow.uncat .lav{box-shadow:inset 0 0 0 1.5px var(--warn);}
+  .linfo{flex:1;min-width:0;}
+  .ltitle{font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lsub{font-size:12px;color:var(--hint);margin-top:2px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lrow.uncat .lsub{color:var(--warn);}
+  .lright{text-align:right;flex-shrink:0;}
+  .lamt{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;}
+  .ltot{font-size:11px;color:var(--hint);}
+  .actions{padding:0 13px 13px;display:none;}
+  .lrow.open .actions{display:block;}
+
+  /* ---- Ulush / o'chirish tugmalari (pending va ro'yxat uchun umumiy) ---- */
+  .trow{display:flex;gap:8px;margin-top:10px;}
+  .mini{flex:1;padding:10px;border:none;border-radius:10px;background:var(--sec-bg);
+    color:var(--text);font-size:13px;font-weight:600;cursor:pointer;}
+  .mini:active{transform:scale(.97);}
+  .mini.danger{background:#ff3b30;color:#fff;}
+  .sbox{margin-top:10px;padding:11px;border-radius:11px;background:var(--sec-bg);display:none;}
+  .sbox.open{display:block;}
+  .sbox .chip{background:var(--bg);}
+  .serr{font-size:12px;color:#ff3b30;margin-top:7px;}
+  .loading{text-align:center;color:var(--hint);padding:40px;}
+  .inp{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(128,128,128,.25);
+    background:var(--sec-bg);color:var(--text);font-size:16px;margin-bottom:10px;}
+  .save{width:100%;padding:13px;border:none;border-radius:11px;background:var(--accent);
+    color:var(--accent-text);font-size:15px;font-weight:600;margin-top:14px;cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="tabs">
+  <div class="tab active" data-tab="pending">🏷 Belgilash<span id="pbadge" class="badge" style="display:none">0</span></div>
+  <div class="tab" data-tab="add">➕ Qo'shish</div>
+  <div class="tab" data-tab="stats">📊 Statistika</div>
+  <div class="tab" data-tab="list">📋 Ro'yxat</div>
+</div>
+
+<div id="pending" class="view active"><div class="loading">Yuklanmoqda…</div></div>
+<div id="add" class="view"></div>
+<div id="stats" class="view"><div class="loading">Yuklanmoqda…</div></div>
+<div id="list" class="view"><div class="loading">Yuklanmoqda…</div></div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.ready(); tg.expand();
+const INIT = tg.initData || "";
+let CATS = [];
+// Har bir ko'rinishning o'z filtri. `from`/`to` to'ldirilgan bo'lsa u tayyor
+// davrdan ustun turadi (serverdagi `resolve_range` ham shu qoidaga amal qiladi).
+const FILTERS = {
+  stats: {period:"this_month", from:"", to:""},
+  list:  {period:"1m",         from:"", to:""},
+};
+const MONTHS = ["yanvar","fevral","mart","aprel","may","iyun",
+                "iyul","avgust","sentabr","oktabr","noyabr","dekabr"];
+
+function fmt(n){ return Math.round(n).toLocaleString("ru-RU").replace(/,/g," "); }
+// Merchant nomi bank xabaridan keladi — innerHTML ichiga to'g'ridan-to'g'ri
+// qo'yilmasin.
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,
+  c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function haptic(){ try{ tg.HapticFeedback.impactOccurred("light"); }catch(e){} }
+
+async function api(path, opts={}){
+  opts.headers = Object.assign({"X-Init-Data": INIT, "Content-Type":"application/json"}, opts.headers||{});
+  const r = await fetch(path, opts);
+  if(!r.ok){
+    let msg = "API " + r.status;
+    try { const j = await r.json(); if (j && j.error) msg = j.error; } catch(e) {}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
+// ---- Tabs ----
+document.querySelectorAll(".tab").forEach(t=>{
+  t.onclick = ()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    const v = t.dataset.tab;
+    document.getElementById(v).classList.add("active");
+    if(v==="add") renderAdd();
+    if(v==="stats") loadStats();
+    if(v==="list") loadList();
+  };
+});
+
+// ---- Qo'lda qo'shish ----
+function renderAdd(){
+  const view = document.getElementById("add");
+  view.innerHTML = `<div class="card">
+    <div style="font-weight:600;margin-bottom:12px">➕ Yangi xarajat</div>
+    <input id="m-amount" class="inp" type="text" inputmode="decimal" placeholder="Summa (UZS)">
+    <input id="m-merchant" class="inp" type="text" placeholder="Nomi / do'kon (ixtiyoriy)">
+    <div style="margin:6px 0 8px;color:var(--hint);font-size:13px">Kategoriya:</div>
+    <div class="chips" id="m-cats"></div>
+    <button id="m-save" class="save">💾 Saqlash</button>
+    <div id="m-msg" style="text-align:center;margin-top:11px;font-size:14px"></div>
+  </div>`;
+  const cats = view.querySelector("#m-cats");
+  let sel = null;
+  CATS.forEach(c=>{
+    const b = document.createElement("button");
+    b.className = "chip"; b.textContent = c.emoji + " " + c.value;
+    b.onclick = ()=>{ cats.querySelectorAll(".chip").forEach(x=>x.classList.remove("sel"));
+      b.classList.add("sel"); sel = c.value; haptic(); };
+    cats.appendChild(b);
+  });
+  view.querySelector("#m-save").onclick = async ()=>{
+    const msg = view.querySelector("#m-msg");
+    // Summani serverga xom matn sifatida yuboramiz: `parse_amount` bot bilan
+    // bir xil qoidada o'qiydi (`100.000` = 100 000, `parseFloat` esa 100 berardi).
+    const amount = view.querySelector("#m-amount").value.trim();
+    const merchant = view.querySelector("#m-merchant").value;
+    if(!amount){ msg.style.color="#ff3b30"; msg.textContent="❌ Summani kiriting"; return; }
+    if(!sel){ msg.style.color="#ff3b30"; msg.textContent="❌ Kategoriyani tanlang"; return; }
+    try{
+      await api("/api/manual",{method:"POST",body:JSON.stringify({amount,merchant,category:sel})});
+      haptic(); msg.style.color="#34c759"; msg.textContent="✅ Saqlandi!";
+      view.querySelector("#m-amount").value=""; view.querySelector("#m-merchant").value="";
+      cats.querySelectorAll(".chip").forEach(x=>x.classList.remove("sel")); sel=null;
+    }catch(e){ msg.style.color="#ff3b30"; msg.textContent="❌ Xato: "+e.message; }
+  };
+}
+
+// ---- Pending ----
+function catChips(exp){
+  const wrap = document.createElement("div");
+  wrap.className = "chips";
+  CATS.forEach(c=>{
+    const b = document.createElement("button");
+    b.className = "chip";
+    b.textContent = c.emoji + " " + c.value;
+    b.onclick = async ()=>{
+      haptic();
+      await api("/api/categorize",{method:"POST",body:JSON.stringify({id:exp.id,category:c.value})});
+      const card = wrap.closest(".card");
+      card.style.transition="opacity .2s"; card.style.opacity="0";
+      setTimeout(()=>{ card.remove(); updatePendingBadge(-1); checkPendingEmpty(); }, 200);
+    };
+    wrap.appendChild(b);
+  });
+  return wrap;
+}
+
+// ---- Ulush + o'chirish (pending kartochka va ro'yxat uchun umumiy) ----
+function expenseTools(exp, onChange, onDelete){
+  const wrap = document.createElement("div");
+  const row = document.createElement("div"); row.className = "trow";
+  const sbtn = document.createElement("button"); sbtn.className = "mini"; sbtn.textContent = "➗ Ulush";
+  const dbtn = document.createElement("button"); dbtn.className = "mini danger"; dbtn.textContent = "🗑 O'chirish";
+  row.appendChild(sbtn); row.appendChild(dbtn);
+  const box = document.createElement("div"); box.className = "sbox";
+  wrap.appendChild(row); wrap.appendChild(box);
+
+  sbtn.onclick = (ev)=>{ ev.stopPropagation(); haptic();
+    box.classList.toggle("open"); if(box.classList.contains("open")) drawBox(); };
+
+  dbtn.onclick = (ev)=>{ ev.stopPropagation();
+    tg.showConfirm("Bu xarajat o'chirilsinmi?", async(ok)=>{ if(!ok) return; haptic();
+      await api("/api/delete",{method:"POST",body:JSON.stringify({id:exp.id})});
+      onDelete();
+    });
+  };
+
+  function drawBox(){
+    const total = exp.original_amount || exp.amount;
+    box.innerHTML = `<div class="meta">🧾 Jami to'lov: ${fmt(total)} UZS</div>
+      <div class="chips sq"></div>
+      <div style="display:flex;gap:7px;margin-top:9px">
+        <input class="inp sinp" style="margin:0;flex:1" type="text" inputmode="decimal" placeholder="O'z ulushingiz">
+        <button class="mini sok" style="flex:0 0 56px;background:var(--accent);color:var(--accent-text)">✔️</button>
+      </div>
+      <div class="serr"></div>`;
+    const sq = box.querySelector(".sq");
+    [2,3,4,5].forEach(n=>{
+      const b = document.createElement("button");
+      b.className = "chip"; b.textContent = `${n} kishi · ${fmt(total/n)}`;
+      b.onclick = (ev)=>{ ev.stopPropagation(); apply(Math.round(total/n)); };
+      sq.appendChild(b);
+    });
+    box.querySelector(".sok").onclick = (ev)=>{ ev.stopPropagation();
+      apply(box.querySelector(".sinp").value); };
+    box.querySelector(".sinp").onclick = (ev)=>ev.stopPropagation();
+    if(exp.original_amount){
+      const r = document.createElement("button");
+      r.className = "mini"; r.style.width = "100%"; r.style.marginTop = "9px";
+      r.textContent = "🔄 Asl summani qaytarish";
+      r.onclick = (ev)=>{ ev.stopPropagation(); apply(null, true); };
+      box.appendChild(r);
+    }
+  }
+
+  async function apply(amount, reset){
+    const err = box.querySelector(".serr");
+    err.textContent = "";
+    // Tekshiruv serverda: summani o'qish qoidasi bitta joyda bo'lishi kerak.
+    if(!reset && !String(amount ?? "").trim()){
+      err.textContent = "❌ Summani kiriting"; return;
+    }
+    try{
+      const r = await api("/api/share",{method:"POST",
+        body: JSON.stringify(reset ? {id:exp.id, reset:true}
+                                   : {id:exp.id, amount:String(amount)})});
+      exp.amount = r.amount; exp.original_amount = r.original_amount;
+      haptic(); onChange(); drawBox();
+    }catch(e){ err.textContent = "❌ "+e.message; }
+  }
+
+  return wrap;
+}
+
+function checkPendingEmpty(){
+  const view = document.getElementById("pending");
+  if(!view.querySelector(".card")){
+    view.innerHTML = '<div class="empty"><div class="big">🎉</div>Barcha xarajatlar belgilangan!</div>';
+  }
+}
+
+async function loadPending(){
+  const view = document.getElementById("pending");
+  try{
+    const rows = await api("/api/pending");
+    setPendingBadge(rows.length);
+    if(!rows.length){ checkPendingEmpty(); return; }
+    view.innerHTML = "";
+    rows.forEach(exp=>{
+      const card = document.createElement("div");
+      card.className="card";
+      card.innerHTML = `<div class="amount"></div>
+        <div class="meta tot"></div>
+        <div class="meta">🏪 ${esc(exp.merchant||"-")}</div>
+        <div class="meta">📅 ${esc(exp.date||"—")}</div>`;
+      const refresh = ()=>{
+        card.querySelector(".amount").textContent = `💰 ${fmt(exp.amount)} UZS`;
+        const tot = card.querySelector(".tot");
+        tot.textContent = exp.original_amount ? `🧾 Jami to'lov: ${fmt(exp.original_amount)} UZS` : "";
+      };
+      refresh();
+      const remove = ()=>{ card.style.transition="opacity .2s"; card.style.opacity="0";
+        setTimeout(()=>{ card.remove(); updatePendingBadge(-1); checkPendingEmpty(); }, 200); };
+      card.appendChild(catChips(exp));
+      card.appendChild(expenseTools(exp, refresh, remove));
+      view.appendChild(card);
+    });
+  }catch(e){ view.innerHTML='<div class="empty">Xatolik: '+e.message+'</div>'; }
+}
+
+let pendingCount = 0;
+function setPendingBadge(n){ pendingCount=n; renderBadge(); }
+function updatePendingBadge(d){ pendingCount=Math.max(0,pendingCount+d); renderBadge(); }
+function renderBadge(){
+  const b=document.getElementById("pbadge");
+  if(pendingCount>0){ b.style.display="inline-block"; b.textContent=pendingCount; }
+  else b.style.display="none";
+}
+
+// ---- Halqa diagramma ----
+//
+// Kutubxonasiz, inline SVG bilan: bo'laklar bosiladigan bo'lishi va ranglar
+// CSS mavzu o'zgaruvchilaridan kelishi kerak edi (qorong'i rejimda boshqa
+// qadamlar ishlatiladi).
+//
+// Faqat 8 tagacha bo'lak chiziladi. Palitrada 8 ta slot bor va ular aynan shu
+// tartibda qo'shni juftliklar bo'yicha tekshirilgan; 9-kategoriya uchun yangi
+// rang o'ylab topilmaydi, qolganlari "Boshqalar" bo'lagiga yig'iladi.
+//
+// Bo'laklar summa bo'yicha tartiblanadi, ya'ni davr o'zgarsa bir kategoriya
+// boshqa rangga tushishi mumkin. Buni zararsiz qiladigan narsa — pastdagi
+// ro'yxatning har bir qatorida o'sha bo'lakning rangi chiziqcha (swatch)
+// sifatida turadi: rangni yodda saqlash kerak emas, moslik doim ko'z oldida.
+const MAX_SLICES = 8;
+
+function sliceData(items){
+  if(items.length <= MAX_SLICES) return items.map((it,i)=>({...it, slot:i+1}));
+  const head = items.slice(0, MAX_SLICES-1).map((it,i)=>({...it, slot:i+1}));
+  const rest = items.slice(MAX_SLICES-1);
+  const amount = rest.reduce((s,i)=>s+i.amount,0);
+  const pct = rest.reduce((s,i)=>s+i.pct,0);
+  return head.concat([{category:"Boshqalar", emoji:"🗂", amount, pct, slot:MAX_SLICES, folded:rest}]);
+}
+
+// Diagramma o'lchamlari. viewBox halqadan kattaroq: halqa atrofida emoji
+// yorliqlari uchun joy kerak.
+const D = {box:240, cx:120, cy:120, r:74, w:26, labelR:105, gap:3};
+
+function donutSVG(slices){
+  const C = 2*Math.PI*D.r;
+  const total = slices.reduce((s,i)=>s+i.amount,0) || 1;
+
+  let offset = 0;
+  const arcs = [], labels = [];
+  slices.forEach(sl=>{
+    const frac = sl.amount/total;
+    const len = Math.max(1, frac*C - D.gap);
+    arcs.push(`<circle class="slice" data-i="${sl.slot}" cx="${D.cx}" cy="${D.cy}" r="${D.r}"
+      fill="none" stroke="var(--s${sl.slot})" stroke-width="${D.w}"
+      stroke-dasharray="${len.toFixed(2)} ${(C-len).toFixed(2)}"
+      stroke-dashoffset="${(-offset).toFixed(2)}" pointer-events="visibleStroke"
+      ><title>${esc(sl.category)}: ${fmt(sl.amount)} UZS (${sl.pct.toFixed(1)}%)</title></circle>`);
+
+    // Halqa tashqarisidagi emoji yorlig'i — qaysi bo'lak qaysi kategoriya
+    // ekanini rangdan qat'i nazar ko'rsatadi. Juda kichik bo'laklarda
+    // yorliqlar bir-biriga tegib ketadi, shuning uchun chegara qo'yiladi.
+    if(frac >= 0.04){
+      const mid = (offset + frac*C/2) / C * Math.PI*2 - Math.PI/2;
+      const x = D.cx + D.labelR*Math.cos(mid);
+      const y = D.cy + D.labelR*Math.sin(mid);
+      labels.push(`<text class="dlabel" data-i="${sl.slot}" x="${x.toFixed(1)}" y="${y.toFixed(1)}"
+        text-anchor="middle" dominant-baseline="central" font-size="15"
+        pointer-events="auto">${esc(sl.emoji)}</text>`);
+    }
+    offset += frac*C;
+  });
+
+  const alt = slices.map(s=>`${s.category} ${s.pct.toFixed(0)}%`).join(", ");
+  return `<svg viewBox="0 0 ${D.box} ${D.box}" role="img" aria-label="Kategoriyalar ulushi: ${esc(alt)}">
+    <g transform="rotate(-90 ${D.cx} ${D.cy})">${arcs.join("")}</g>${labels.join("")}</svg>`;
+}
+
+// ---- Statistika ----
+async function loadStats(){
+  const view = document.getElementById("stats");
+  view.innerHTML = filterBar("stats") + '<div class="loading">Yuklanmoqda…</div>';
+  bindFilters("stats", loadStats);
+  try{
+    const data = await api("/api/stats?"+filterQuery("stats"));
+    const body = view.querySelector(".loading");
+    if(!data.items.length){
+      body.outerHTML = '<div class="empty"><div class="big">📭</div>Bu davrda xarajat yo\'q</div>'; return;
+    }
+    const slices = sliceData(data.items);
+    // Markaz bo'sh chiziladi va `showTotal()` bilan to'ldiriladi — matn
+    // faqat bitta joyda yasalsin (aks holda "jami"ning ikki nusxasi paydo
+    // bo'ladi va ular bir-biridan chetlab ketishi mumkin).
+    body.outerHTML = `<div class="donutwrap">${donutSVG(slices)}
+        <div class="dcenter"></div>
+      </div>
+      <div class="sheet" id="statrows"></div>`;
+
+    // Markazdagi matn: sukut bo'yicha jami, bo'lak ustiga kelganda o'sha
+    // kategoriya. SVG'ning tug'ma `<title>` tooltipi yetarli emas — u
+    // telefonda umuman chiqmaydi, Mini App esa asosan telefonda ochiladi.
+    const center = document.querySelector("#stats .dcenter");
+    const showTotal = ()=>{
+      center.innerHTML = `<div class="dlab">Jami</div>
+        <div class="dval">${fmt(data.total)}</div><div class="dlab">UZS</div>`;
+    };
+    const showSlice = (sl)=>{
+      center.innerHTML = `<div class="dlab">${esc(sl.emoji)} ${esc(sl.category)}</div>
+        <div class="dval">${fmt(sl.amount)}</div>
+        <div class="dlab">UZS · ${sl.pct.toFixed(1)}%</div>`;
+    };
+
+    // Bo'lak bosilganda o'sha kategoriya ochiladi. Yig'ilgan "Boshqalar"
+    // bo'lagining o'z tranzaksiyalari yo'q — u ro'yxatga yo'naltiradi.
+    const wrap = document.querySelector("#stats .donutwrap");
+    wrap.querySelectorAll(".slice, .dlabel").forEach(el=>{
+      const sl = slices[+el.dataset.i - 1];
+      el.onclick = ()=> sl.folded ? scrollToRows() : openCategory(sl);
+      el.onpointerenter = ()=> showSlice(sl);
+      el.onpointerdown  = ()=> showSlice(sl);
+    });
+    wrap.onpointerleave = showTotal;
+    showTotal();
+
+    const cont = document.getElementById("statrows");
+    const max = Math.max(...data.items.map(i=>i.amount)) || 1;
+    // Har bir kategoriya uchun uning bo'lagi rangi. 8 tadan keyingilar
+    // "Boshqalar" bo'lagi ichida, ya'ni oxirgi slotni ulashadi.
+    const slotOf = it => {
+      const own = slices.find(s=>s.category===it.category && !s.folded);
+      return own ? own.slot : MAX_SLICES;
+    };
+    data.items.forEach(it=>{
+      const b = document.createElement("button");
+      b.className = "srow";
+      b.style.setProperty("--sw", `var(--s${slotOf(it)})`);
+      b.innerHTML = `<div class="swatch"></div>
+        <div class="ico">${esc(it.emoji)}</div>
+        <div class="nm"><div class="nmt">${esc(it.category)}</div>
+          <div class="bartrack"><div class="bar" style="width:${(it.amount/max*100).toFixed(1)}%"></div></div>
+        </div>
+        <div class="amt">${fmt(it.amount)}<div class="pc">${it.pct.toFixed(1)}%</div></div>
+        <div class="chev">›</div>`;
+      b.onclick = ()=>openCategory(it);
+      cont.appendChild(b);
+    });
+  }catch(e){ view.querySelector(".loading").outerHTML='<div class="empty">Xatolik: '+esc(e.message)+'</div>'; }
+}
+
+function scrollToRows(){
+  haptic();
+  const el = document.getElementById("statrows");
+  if(el) el.scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+// Kategoriya ustiga bosilganda — o'sha kategoriyaning tranzaksiyalari,
+// aynan shu filtr oralig'ida.
+async function openCategory(item){
+  haptic();
+  const view = document.getElementById("stats");
+  view.innerHTML = `<div class="dhead">
+      <button class="backbtn">←</button>
+      <div><div class="dtitle">${esc(item.emoji)} ${esc(item.category)}</div>
+        <div class="lsub">${fmt(item.amount)} UZS · ${item.pct.toFixed(1)}%</div></div>
+    </div><div class="loading">Yuklanmoqda…</div>`;
+  view.querySelector(".backbtn").onclick = ()=>{ haptic(); loadStats(); };
+  try{
+    const rows = await api("/api/expenses?"+filterQuery("stats")
+      + "&category=" + encodeURIComponent(item.category));
+    const body = view.querySelector(".loading");
+    if(!rows.length){
+      body.outerHTML = '<div class="empty"><div class="big">📭</div>Xarajat topilmadi</div>'; return;
+    }
+    body.outerHTML = '<div id="drillrows"></div>';
+    renderGrouped(document.getElementById("drillrows"), rows);
+  }catch(e){ view.querySelector(".loading").outerHTML='<div class="empty">Xatolik: '+esc(e.message)+'</div>'; }
+}
+
+// ---- Ro'yxat ----
+async function loadList(){
+  const view = document.getElementById("list");
+  view.innerHTML = filterBar("list") + '<div class="loading">Yuklanmoqda…</div>';
+  bindFilters("list", loadList);
+  try{
+    const rows = await api("/api/expenses?"+filterQuery("list"));
+    const body = view.querySelector(".loading");
+    if(!rows.length){
+      body.outerHTML='<div class="empty"><div class="big">📭</div>Xarajatlar yo\'q</div>'; return;
+    }
+    body.outerHTML = '<div id="listrows"></div>';
+    renderGrouped(document.getElementById("listrows"), rows);
+  }catch(e){ view.querySelector(".loading").outerHTML='<div class="empty">Xatolik: '+esc(e.message)+'</div>'; }
+}
+
+// ---- Kunlar bo'yicha guruhlash ----
+//
+// Kartochkalar bir-biriga qo'shilib ketmasligi uchun: har kun o'z sarlavhasi
+// (kun nomi + o'sha kunning jami summasi) va o'z bloki bilan ajratiladi.
+// Yozuvlar serverdan vaqt bo'yicha kamayish tartibida keladi, ya'ni bir kunning
+// yozuvlari ketma-ket turadi.
+function dayOf(exp){ return (exp.ts || "").slice(0,10); }
+
+function localISO(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+function dayLabel(day){
+  if(!day) return "Sanasi noma'lum";
+  const today = new Date();
+  if(day === localISO(today)) return "Bugun";
+  const yst = new Date(today); yst.setDate(yst.getDate()-1);
+  if(day === localISO(yst)) return "Kecha";
+  const [y,m,d] = day.split("-").map(Number);
+  const label = `${d}-${MONTHS[m-1]}`;
+  return y === today.getFullYear() ? label : `${label}, ${y}`;
+}
+
+function groupByDay(rows){
+  const groups = [];
+  let cur = null;
+  rows.forEach(exp=>{
+    const day = dayOf(exp);
+    if(!cur || cur.day !== day){ cur = {day, items:[], total:0}; groups.push(cur); }
+    cur.items.push(exp);
+    cur.total += exp.amount;
+  });
+  return groups;
+}
+
+function renderGrouped(cont, rows){
+  groupByDay(rows).forEach(g=>{
+    const head = document.createElement("div");
+    head.className = "dayhead";
+    head.innerHTML = `<span>${esc(dayLabel(g.day))}</span><span class="dsum">${fmt(g.total)} UZS</span>`;
+    cont.appendChild(head);
+    const box = document.createElement("div");
+    box.className = "daygroup";
+    g.items.forEach(exp=>box.appendChild(listRow(exp)));
+    cont.appendChild(box);
+  });
+}
+
+function catEmoji(name){
+  const c = CATS.find(x=>x.value===name);
+  return c ? c.emoji : "❓";
+}
+
+function listRow(exp){
+  const row = document.createElement("div");
+  row.className = "lrow" + (exp.category ? "" : " uncat");
+  row.innerHTML = `<div class="lmain">
+      <div class="lav"></div>
+      <div class="linfo">
+        <div class="ltitle">${esc(exp.merchant || "Nomsiz")}</div>
+        <div class="lsub"></div>
+      </div>
+      <div class="lright"><div class="lamt"></div><div class="ltot"></div></div>
+    </div>
+    <div class="actions"></div>`;
+
+  const time = (exp.ts || "").slice(11,16);
+  const refresh = ()=>{
+    row.classList.toggle("uncat", !exp.category);
+    row.querySelector(".lav").textContent = catEmoji(exp.category);
+    row.querySelector(".lsub").textContent =
+      [time, exp.category || "Kategoriyalanmagan"].filter(Boolean).join(" · ");
+    row.querySelector(".lamt").textContent = fmt(exp.amount);
+    row.querySelector(".ltot").textContent =
+      exp.original_amount ? `jami ${fmt(exp.original_amount)}` : "";
+  };
+  refresh();
+
+  const actions = row.querySelector(".actions");
+  const chips = document.createElement("div"); chips.className="chips";
+  CATS.forEach(c=>{
+    const b = document.createElement("button");
+    b.className = "chip" + (c.value===exp.category ? " sel" : "");
+    b.textContent = c.emoji;
+    b.title = c.value;
+    b.onclick = async (ev)=>{
+      ev.stopPropagation(); haptic();
+      try{
+        await api("/api/categorize",{method:"POST",body:JSON.stringify({id:exp.id,category:c.value})});
+        exp.category = c.value;
+        chips.querySelectorAll(".chip").forEach(x=>x.classList.remove("sel"));
+        b.classList.add("sel");
+        refresh();
+      }catch(err){ tg.showAlert ? tg.showAlert(err.message) : alert(err.message); }
+    };
+    chips.appendChild(b);
+  });
+
+  const removeRow = ()=>{ row.style.transition="opacity .2s"; row.style.opacity="0";
+    setTimeout(()=>row.remove(),200); };
+  actions.appendChild(chips);
+  actions.appendChild(expenseTools(exp, refresh, removeRow));
+  row.querySelector(".lmain").onclick = ()=>row.classList.toggle("open");
+  return row;
+}
+
+// ---- Filtr paneli (statistika va ro'yxat uchun umumiy) ----
+const PERIODS = [["1 kun","1d"],["7 kun","7d"],["Shu oy","this_month"],["1 oy","1m"]];
+
+function isCustom(f){ return !!(f.from || f.to); }
+
+function shortDate(iso){
+  if(!iso) return "";
+  const [y,m,d] = iso.split("-");
+  return `${+d}-${MONTHS[+m-1].slice(0,3)}`;
+}
+
+function rangeLabel(f){
+  if(!isCustom(f)) return "📅 Sana";
+  if(f.from && f.to) return `${shortDate(f.from)} – ${shortDate(f.to)}`;
+  return f.from ? `${shortDate(f.from)} dan` : `${shortDate(f.to)} gacha`;
+}
+
+function filterQuery(kind){
+  const f = FILTERS[kind];
+  return isCustom(f)
+    ? `from=${encodeURIComponent(f.from)}&to=${encodeURIComponent(f.to)}`
+    : `period=${encodeURIComponent(f.period)}`;
+}
+
+function filterBar(kind){
+  const f = FILTERS[kind];
+  const custom = isCustom(f);
+  const chips = PERIODS.map(([l,v])=>
+    `<button class="period${!custom && v===f.period?" active":""}" data-p="${v}">${l}</button>`).join("");
+  return `<div class="filters">
+    <div class="periods">${chips}
+      <button class="period rangebtn${custom?" active":""}">${esc(rangeLabel(f))}</button>
+    </div>
+    <div class="datebox">
+      <div class="drow">
+        <label>Boshlanish<input type="date" class="dinp" data-k="from" value="${esc(f.from)}"></label>
+        <label>Tugash<input type="date" class="dinp" data-k="to" value="${esc(f.to)}"></label>
+      </div>
+      <div class="derr"></div>
+      <div class="trow">
+        <button class="mini dapply">✔️ Qo'llash</button>
+        <button class="mini dclear">✖️ Tozalash</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function bindFilters(kind, reload){
+  const root = document.querySelector("#"+kind+" .filters");
+  if(!root) return;
+  const f = FILTERS[kind];
+  const box = root.querySelector(".datebox");
+  const err = root.querySelector(".derr");
+
+  root.querySelectorAll(".period[data-p]").forEach(b=>{
+    b.onclick = ()=>{ haptic(); f.period=b.dataset.p; f.from=""; f.to=""; reload(); };
+  });
+  root.querySelector(".rangebtn").onclick = ()=>{ haptic(); box.classList.toggle("open"); };
+  root.querySelector(".dclear").onclick = ()=>{ haptic(); f.from=""; f.to=""; reload(); };
+  root.querySelector(".dapply").onclick = ()=>{
+    const vals = {};
+    root.querySelectorAll(".dinp").forEach(i=>vals[i.dataset.k]=i.value);
+    if(!vals.from && !vals.to){
+      err.textContent = "Kamida bitta sanani tanlang"; err.classList.add("show"); return;
+    }
+    haptic(); f.from=vals.from; f.to=vals.to; reload();
+  };
+}
+
+// ---- Boot ----
+(async ()=>{
+  // Diagramma chizig'ining rangi mavzuga qarab tanlanadi (Telegram o'zi
+  // xabar beradi; bo'lmasa CSS media-query zaxira sifatida ishlaydi).
+  if(tg.colorScheme) document.body.dataset.scheme = tg.colorScheme;
+  tg.onEvent && tg.onEvent("themeChanged", ()=>{
+    if(tg.colorScheme) document.body.dataset.scheme = tg.colorScheme;
+  });
+  try{ CATS = await api("/api/categories"); }catch(e){ CATS=[]; }
+  loadPending();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+# Dockerfile `COPY . .` qiladi, ya'ni build konteksti to'liq image ichiga
+# tushadi. Build konteksti — loyiha papkasi, va aynan
+# o'sha yerda .env turadi. Busiz BOT_TOKEN, SESSION_STRING va baza paroli
+# image qatlamiga yozilib qolardi.
+.env
+.env.*
+!.env.example
+
+.git
+.github
+.gitignore
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.idea/
+.vscode/
+.DS_Store
+deploy/

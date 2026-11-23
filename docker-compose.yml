@@ -1,0 +1,60 @@
+# MoneyStatBot — bitta buyruq bilan ishga tushirish:
+#
+#   cp .env.example .env      # keyin .env ni to'ldiring
+#   docker compose up -d --build
+#
+# Mini App (HTTPS) kerak bo'lsa — .env da DOMAIN va PUBLIC_URL ni to'ldirib:
+#
+#   docker compose --profile https up -d --build
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: moneystat
+      POSTGRES_DB: moneystat
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.env faylida POSTGRES_PASSWORD ni to'ldiring}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moneystat -d moneystat"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Baza shu compose ichida — manzil avtomatik. .env dagi DATABASE_URL
+      # (agar bo'lsa) shu yerda ustidan yoziladi.
+      DATABASE_URL: postgresql+asyncpg://moneystat:${POSTGRES_PASSWORD}@postgres:5432/moneystat
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Ixtiyoriy: HTTPS (webhook + Mini App). Caddy sertifikatni o'zi oladi.
+  # Faqat `--profile https` bilan ishga tushadi.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    profiles: ["https"]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-}
+      BOT_PORT: ${PORT:-10000}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - bot
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

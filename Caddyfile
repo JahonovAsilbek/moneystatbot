@@ -1,0 +1,7 @@
+# HTTPS teskari proksi — `docker compose --profile https up -d` bilan ishlaydi.
+# DOMAIN va PORT qiymatlari .env dan olinadi. Domen DNS'da serveringiz IP
+# manziliga yo'naltirilgan bo'lishi kerak — Caddy sertifikatni o'zi oladi.
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy bot:{$BOT_PORT}
+}
