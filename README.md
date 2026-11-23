@@ -7,6 +7,14 @@ kategoriyalarga ajratadi va statistika ko'rsatadi.
 > 🏠 **Self-hosted:** har kim botni o'z serverida, o'z bot tokeni bilan
 > ishga tushiradi. Ma'lumotlaringiz faqat sizning bazangizda turadi.
 
+## 📸 Ko'rinishi
+
+| 🏷 Kategoriyalash | 🔔 Eslatmalar | 📊 Statistika |
+|:---:|:---:|:---:|
+| <img src="screenshots/bot-kategoriyalash.png" width="250"> | <img src="screenshots/bot-eslatma.png" width="250"> | <img src="screenshots/app-statistika.png" width="250"> |
+| **📋 Ro'yxat** | **🏷 Mini App'da belgilash** | **➕ Qo'lda qo'shish** |
+| <img src="screenshots/app-royxat.png" width="250"> | <img src="screenshots/app-belgilash.png" width="250"> | <img src="screenshots/app-qoshish.png" width="250"> |
+
 ## ✨ Imkoniyatlar
 
 - 📲 **Bank xabarini o'qish** — UzCard (@CardXabarBot) va Humo (@HUMOcardbot)
